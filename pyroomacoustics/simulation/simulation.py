@@ -103,7 +103,7 @@ if __name__ == "__main__":
         before_write = time()
         skip_flag = False
         for i in range(len(positions)):
-            if i == mic_idx:
+            if i == source_index:
                 skip_flag = True
                 continue
             else:

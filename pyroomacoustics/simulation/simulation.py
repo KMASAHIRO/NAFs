@@ -110,9 +110,9 @@ if __name__ == "__main__":
                 for j in range(mic_num):
                     path = os.path.join(results_dir, str(source_index) + "_" + str(i) + "_" + str(j+1) + ".wav")
                     if skip_flag:
-                        sf.write(file=path, data=room.rir[(i-1)*4+j, 0], samplerate=sampling_rate)
+                        sf.write(file=path, data=room.rir[(i-1)*4+j][0], samplerate=sampling_rate)
                     else:
-                        sf.write(file=path, data=room.rir[i*4+j, 0], samplerate=sampling_rate)
+                        sf.write(file=path, data=room.rir[i*4+j][0], samplerate=sampling_rate)
         after_write = time()
 
         compute_time = after_compute - before_compute

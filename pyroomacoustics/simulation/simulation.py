@@ -118,19 +118,19 @@ if __name__ == "__main__":
         compute_time = after_compute - before_compute
         write_time = after_write - before_write
         print(
-            "compute time: {:.2f}s".format(compute_time), 
+            "compute time: {:.2f}s,".format(compute_time), 
             "write time: {:.2f}s".format(write_time)
             )
         all_compute_time += compute_time
         all_write_time += write_time
         print("source_index{}({:.2f}) done!".format(source_index, (source_index+1)/source_num))
         print(
-            "compute time: {:.2f} minutes now".format(all_compute_time/60), 
+            "compute time: {:.2f} minutes now,".format(all_compute_time/60), 
             "write time: {:.2f} minutes now".format(all_write_time/60)
             )
     
     print(
-        "compute time: {:.2f} minutes".format(all_compute_time/60), 
+        "compute time: {:.2f} minutes,".format(all_compute_time/60), 
         "write time: {:.2f} minutes".format(all_write_time/60)
         )
     print("all done!")

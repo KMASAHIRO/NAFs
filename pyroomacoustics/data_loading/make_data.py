@@ -66,7 +66,7 @@ class get_spec():
             transformed_data = self.spec_transform(torch.from_numpy(wav_data)).numpy()
         else:
             
-            transformed_data = np.array([librosa.stft(wav_data[0],n_fft=self.n_fft, hop_length=self.hop),])[:,:-1]
+            transformed_data = np.array([librosa.stft(wav_data,n_fft=self.n_fft, hop_length=self.hop),])[:,:-1]
 #         print(np.array([librosa.stft(wav_data[0],n_fft=self.n_fft, hop_length=self.hop),
 #                librosa.stft(wav_data[1],n_fft=self.n_fft, hop_length=self.hop)]).shape, "OLD SHAPE")
 
@@ -94,29 +94,40 @@ zz = 0
     
 files = sorted(os.listdir(raw_path))
 files = [_ for _ in files if "wav" in _]
+files_channel = dict()
+for ff in files:
+    tmp = ff.split(".")[0].split("_")
+    pos_id = "_".join(tmp[:2])
+    if pos_id in files_channel.keys():
+        files_channel[pos_id].append(ff)
+    else:
+        files_channel[pos_id] = [ff]
 
 print("Found {} files".format(str(len(files))))
-    
-for ff in files:
+
+for key in files_channel:
     zz+= 1 
     if zz % 500==0:
         print(zz)
-    cur_file = os.path.join(raw_path, ff)
-    try:
-        loaded_wav = load_audio(cur_file, use_torch=True)
-    except Exception as e:
-        print("0 length wav", cur_file, e)
-        continue
+    
+    loaded_wav = list()
+    for ff in files_channel[key]:
+        cur_file = os.path.join(raw_path, ff)
+        try:
+            loaded_wav_tmp = load_audio(cur_file, use_torch=True)
+            loaded_wav.append(loaded_wav_tmp)
+        except Exception as e:
+            print("0 length wav", cur_file, e)
+            continue
+    loaded_wav = torch.cat(loaded_wav, dim=0)
     real_spec, img_spec, raw_phase = spec_getter.transform(loaded_wav)
     length_tracker.append(real_spec.shape[2])
-    f_mag.create_dataset('{}'.format(ff.split(".")[0]), data=real_spec.astype(np.half))
-    f_phase.create_dataset('{}'.format(ff.split(".")[0]), data=img_spec.astype(np.half))
+    f_mag.create_dataset('{}'.format(key), data=real_spec.astype(np.half))
+    f_phase.create_dataset('{}'.format(key), data=img_spec.astype(np.half))
 print("Max length", np.max(length_tracker))
 max_len = np.max(length_tracker)
 f_mag.close()
 f_phase.close()
-
-
 
 # Compute mean std
 

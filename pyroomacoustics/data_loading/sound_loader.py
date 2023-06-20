@@ -9,9 +9,6 @@ random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 
-import traceback
-import sys
-
 def listdir(path):
     return [os.path.join(path, x) for x in os.listdir(path)]
 
@@ -145,9 +142,6 @@ class soundsamples(torch.utils.data.Dataset):
                 loaded = True
 
             except Exception as e:
-                t, v, tb = sys.exc_info()
-                print("".join(traceback.format_exception(t,v,tb)))
-                print("".join(traceback.format_tb(e.__traceback__)))
                 print(query_str)
                 print(e)
                 print("Failed to load sound sample")

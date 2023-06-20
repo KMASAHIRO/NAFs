@@ -67,6 +67,8 @@ class Options():
         parser.add_argument('--min_bandwidth', default=0.1, type=float) # Minimum bandwidth for clipping
         parser.add_argument('--max_bandwidth', default=0.5, type=float) # Maximum bandwidth for clipping
         parser.add_argument('--num_freqs', default=10, type=int) # Number of frequency for sin/cos
+        parser.add_argument('--dir_ch', default=4, type=int)  # num of direction channel(if binaural, 2)
+        parser.add_argument('--max_len', default=245, type=int)  # max legth of time
 
         # testing arguments
         parser.add_argument('--inference_loc', default="inference_out", type=str) # os.path.join(save_loc, inference_loc), where to cache inference results
@@ -93,8 +95,6 @@ class Options():
         if not self.initialized:
             self.initialize()
         self.opt = self.parser.parse_args()
-        # max length of meshrir is 120
-        self.opt.max_len = 120
         
         torch.manual_seed(0)
         # random.seed(0)

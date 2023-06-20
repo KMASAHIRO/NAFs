@@ -22,6 +22,7 @@ class soundsamples(torch.utils.data.Dataset):
         spec_base = arg_stuff.spec_base
         phase_base = arg_stuff.phase_base
         mean_std_base = arg_stuff.mean_std_base
+        phase_std_base = arg_stuff.phase_std_base
         minmax_base = arg_stuff.minmax_base
         num_samples = arg_stuff.pixel_count
 
@@ -61,9 +62,10 @@ class soundsamples(torch.utils.data.Dataset):
         self.std = 3.0 * torch.from_numpy(mean_std[1]).float()[None]
 
         # Phase mean is 0 after IF processing
-        # STD is pretty constant at 0.58 across rooms
-        # STD is 0.577 in MeshRIR, so use the same STD with SoundSpaces
-        self.phase_std = 3.0*0.58
+        with open(os.path.join(phase_std_base, "phase_std.pkl"), "rb") as phase_std_ff:
+            phase_std = pickle.load(phase_std_ff)
+            print("Loaded phase std")
+        self.phase_std = 3.0*phase_std
 
         with open(coor_path, "r") as f:
             lines = f.readlines()

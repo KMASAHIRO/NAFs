@@ -33,6 +33,7 @@ class Options():
         parser.add_argument('--spec_base', default="./magnitudes", type=str)  # Location of the actual training spectrograms
         parser.add_argument('--phase_base', default="./phases", type=str)  # Location of the actual training spectrograms
         parser.add_argument('--mean_std_base', default="./magnitude_mean_std", type=str)  # Location of sound mean_std data
+        parser.add_argument('--phase_std_base', default="./phase_std", type=str)  # Location of sound phase_std data
         parser.add_argument('--minmax_base', default="./minmax", type=str)  # Location of room bbox data
         parser.add_argument('--wav_base', default="./wav_data/raw", type=str)  # Location of impulses in raw .wav format
         parser.add_argument('--split_loc', default="./train_test_split/", type=str) # Where the train test split is stored

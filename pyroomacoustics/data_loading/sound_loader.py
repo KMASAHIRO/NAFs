@@ -9,6 +9,9 @@ random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 
+import traceback
+import sys
+
 def listdir(path):
     return [os.path.join(path, x) for x in os.listdir(path)]
 
@@ -123,8 +126,8 @@ class soundsamples(torch.utils.data.Dataset):
                 selected_time = np.random.randint(0, sound_size[2], self.num_samples)
                 selected_freq = np.random.randint(0, sound_size[1], self.num_samples)
 
-                non_norm_start = (np.array(self.positions[position[0]])[:2] + np.random.normal(0, 1, 3)*self.pos_reg_amt)
-                non_norm_end = (np.array(self.positions[position[1]])[:2]+ np.concatenate((np.random.normal(0, 1, 2)*self.pos_reg_amt, np.zeros(1))))
+                non_norm_start = (np.array(self.positions[position[0]])[:2] + np.random.normal(0, 1, 2)*self.pos_reg_amt)
+                non_norm_end = (np.array(self.positions[position[1]])[:2]+ np.random.normal(0, 1, 2)*self.pos_reg_amt)
                 start_position = (torch.from_numpy((non_norm_start - self.min_pos)/(self.max_pos-self.min_pos))[None] - 0.5) * 2.0
                 start_position = torch.clamp(start_position, min=-1.0, max=1.0)
                 
@@ -142,6 +145,9 @@ class soundsamples(torch.utils.data.Dataset):
                 loaded = True
 
             except Exception as e:
+                t, v, tb = sys.exc_info()
+                print("".join(traceback.format_exception(t,v,tb)))
+                print("".join(traceback.format_tb(e.__traceback__)))
                 print(query_str)
                 print(e)
                 print("Failed to load sound sample")

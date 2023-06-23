@@ -49,6 +49,7 @@ def test_net(rank, other_args):
     saver_obj = h5py.File(save_name, "w")
     saver_obj.create_dataset("mean", data=dataset.mean.numpy())
     saver_obj.create_dataset("std", data=dataset.std.numpy())
+    saver_obj.create_dataset("phase_std", data=dataset.phase_std.numpy())
 
     with torch.no_grad():
         num_sample_test = len(dataset.sound_files_test)

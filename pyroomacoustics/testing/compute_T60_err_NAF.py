@@ -53,15 +53,15 @@ for k in all_keys:
     net_phase = saver_obj[k + "_out_phase"][:][0]*phase_std
     gt_phase = saver_obj[k + "_gt_phase"][:][0]*phase_std
     
-    node_names = k.replace("[", "").replace("]", "").replace("'", "").split(",")
-    first = str(int(node_names[0]))
-    second = str(int(node_names[1]))
-    audio_file_name = os.path.join(cur_args.wav_base, "{}_{}.wav".format(first, second))
-    gt_wav2 = load_audio(audio_file_name)
+    #node_names = k.replace("[", "").replace("]", "").replace("'", "").split(",")
+    #first = str(int(node_names[0]))
+    #second = str(int(node_names[1]))
+    #audio_file_name = os.path.join(cur_args.wav_base, "{}_{}.wav".format(first, second))
+    #gt_wav2 = load_audio(audio_file_name)
     ##################
-    net_wav = get_waves(net_out, net_phase)
-    gt_wav = get_waves(gt_out, gt_phase)
-    t60s = compute_t60(gt_wav, net_wav)
+    net_wav = get_waves(net_out, net_phase, cur_args.dir_ch)
+    gt_wav = get_waves(gt_out, gt_phase, cur_args.dir_ch)
+    t60s = compute_t60(gt_wav, net_wav, cur_args.dir_ch)
     all_t60.append(t60s)
     output_wav[k] = {"net_wav": net_wav, "gt_wav": gt_wav}
 

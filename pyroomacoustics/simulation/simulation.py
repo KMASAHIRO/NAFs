@@ -86,7 +86,7 @@ if __name__ == "__main__":
             dir_obj_pattern = list()
             for i in range(mic_num):
                 dir_obj = CardioidFamily(
-                orientation=DirectionVector(azimuth=90*i, colatitude=90, degrees=True),
+                orientation=DirectionVector(azimuth=(360/mic_num)*i, colatitude=90, degrees=True),
                 pattern_enum=DirectivityPattern.CARDIOID
                 )
                 dir_obj_pattern.append(dir_obj)

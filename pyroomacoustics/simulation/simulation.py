@@ -17,9 +17,10 @@ if __name__ == "__main__":
     blank_space = 0.5
     mic_radius = 0.1
     mic_num = 4
+    mic_directivity_flg = False
     points_path = "./points.txt"
     minmax_path = "./minmax.pkl"
-    results_dir = "./simulation_results/"
+    results_dir = "./results/"
 
     # 残響時間と部屋の寸法
     rt60 = 0.5  # seconds
@@ -69,16 +70,6 @@ if __name__ == "__main__":
             with open(minmax_path, mode="wb") as f:
                 pickle.dump(minmax, f)
 
-        ## create directivity object
-        #dir_num = mic_num
-        #dir_objs = list()
-        #for i in range(dir_num):
-        #    dir_obj = CardioidFamily(
-        #    orientation=DirectionVector(azimuth=90*i, colatitude=90, degrees=True),
-        #    pattern_enum=DirectivityPattern.CARDIOID
-        #    )
-        #    dir_objs.append(dir_obj)
-
         mic_positions = np.zeros((3, 0))
 
         for i in range(len(positions)):
@@ -89,10 +80,24 @@ if __name__ == "__main__":
                 z = np.ones((1, mic_num))*positions[i][2]
                 position_circle = np.concatenate((position_circle_xy, z), axis=0)
                 mic_positions = np.concatenate((mic_positions, position_circle), axis=1)
+        
+        if mic_directivity_flg:
+            # create directivity object
+            dir_obj_pattern = list()
+            for i in range(mic_num):
+                dir_obj = CardioidFamily(
+                orientation=DirectionVector(azimuth=90*i, colatitude=90, degrees=True),
+                pattern_enum=DirectivityPattern.CARDIOID
+                )
+                dir_obj_pattern.append(dir_obj)
+            dir_obj_list = np.repeat(dir_obj_pattern, mic_positions.shape[-1]//mic_num, axis=0).tolist()
 
-        # room にマイクを追加します
-        room.add_microphone_array(mic_positions)
-
+            # room にマイクを追加します
+            room.add_microphone_array(mic_positions, directivity=dir_obj_list)
+        else:
+            # room にマイクを追加します
+            room.add_microphone_array(mic_positions)
+            
         # 音源ごとに座標情報を与え、`room`に追加していきます。
         room.add_source(source_position)
 
@@ -134,4 +139,3 @@ if __name__ == "__main__":
         "write time: {:.2f} minutes".format(all_write_time/60)
         )
     print("all done!")
-        

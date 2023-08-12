@@ -91,9 +91,13 @@ phase_object = os.path.join(phase_path, "phases")
 f_mag = h5py.File(mag_object+".h5", 'w')
 f_phase = h5py.File(phase_object+".h5", 'w')
 zz = 0
-    
-files = sorted(os.listdir(raw_path))
+
+def return_lastnumber(strings):
+    return int(strings.replace(".wav", "").split("_")[-1])
+
+files = os.listdir(raw_path)
 files = [_ for _ in files if "wav" in _]
+files = sorted(files, key=return_lastnumber)
 files_channel = dict()
 for ff in files:
     tmp = ff.split(".")[0].split("_")

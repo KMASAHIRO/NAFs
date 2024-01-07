@@ -60,6 +60,7 @@ class Options():
 
         # network arguments
         parser.add_argument('--layers', default=8, type=int) # Number of layers in the network
+        parser.add_argument('--layers_residual', default=0, type=int) # Number of residual layers in the network
         parser.add_argument('--grid_gap', default=0.25, type=float) # How far are the grid points spaced
         parser.add_argument('--bandwith_init', default=0.25, type=float) # Initial bandwidth of the grid
         parser.add_argument('--features', default=512, type=int) # Number of neurons in the network for each layer

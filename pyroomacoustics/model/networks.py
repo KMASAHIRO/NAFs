@@ -19,7 +19,7 @@ class kernel_linear_act(nn.Module):
         return self.block(input_x)
 
 class kernel_residual_fc_embeds(nn.Module):
-    def __init__(self, input_ch, dir_ch=4, intermediate_ch=512, grid_ch = 64, num_block=8, output_ch=2, grid_gap=0.25, grid_bandwidth=0.25, bandwidth_min=0.1, bandwidth_max=0.5, float_amt=0.1, min_xy=None, max_xy=None, probe=False):
+    def __init__(self, input_ch, dir_ch=4, intermediate_ch=512, grid_ch = 64, num_block=8, num_block_residual=0, output_ch=2, grid_gap=0.25, grid_bandwidth=0.25, bandwidth_min=0.1, bandwidth_max=0.5, float_amt=0.1, min_xy=None, max_xy=None, probe=False):
         super(kernel_residual_fc_embeds, self).__init__()
         # input_ch (int): number of ch going into the network
         # intermediate_ch (int): number of intermediate neurons
@@ -32,7 +32,15 @@ class kernel_residual_fc_embeds(nn.Module):
             self.register_parameter("channel_{}".format(k),nn.Parameter(torch.randn(1, 1, self.dir_ch, intermediate_ch)/math.sqrt(intermediate_ch),requires_grad=True))
         
         self.proj = basic_project2(input_ch + int(2*grid_ch), intermediate_ch)
-        self.residual_1 = nn.Sequential(basic_project2(input_ch + 128, intermediate_ch), nn.LeakyReLU(negative_slope=0.1), basic_project2(intermediate_ch, intermediate_ch))
+        #self.residual_1 = nn.Sequential(basic_project2(input_ch + 128, intermediate_ch), nn.LeakyReLU(negative_slope=0.1), basic_project2(intermediate_ch, intermediate_ch))
+        self.residual_1 = nn.Sequential()
+        self.residual_1.add_module("0", basic_project2(input_ch + int(2*grid_ch), intermediate_ch))
+        self.residual_1.add_module("1", nn.LeakyReLU(negative_slope=0.1))
+        self.residual_1.add_module("2", basic_project2(intermediate_ch, intermediate_ch))
+        for k in range(num_block_residual):
+            self.residual_1.add_module(str(k*2+3), nn.LeakyReLU(negative_slope=0.1))
+            self.residual_1.add_module(str(k*2+4), basic_project2(intermediate_ch, intermediate_ch))
+
         self.layers = torch.nn.ModuleList()
         for k in range(num_block - 2):
             self.layers.append(kernel_linear_act(intermediate_ch, intermediate_ch))

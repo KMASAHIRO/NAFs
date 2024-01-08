@@ -25,7 +25,7 @@ def test_net(rank, other_args):
     xyz_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2, max_freq=7).to(output_device)
     time_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2).to(output_device)
     freq_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2).to(output_device)
-    auditory_net = kernel_residual_fc_embeds(input_ch=126, dir_ch=other_args.dir_ch, output_ch=2, intermediate_ch=other_args.features, grid_ch=other_args.grid_features, num_block=other_args.layers, grid_gap=other_args.grid_gap, grid_bandwidth=other_args.bandwith_init, bandwidth_min=other_args.min_bandwidth, bandwidth_max=other_args.max_bandwidth, float_amt=other_args.position_float, min_xy=dataset.min_pos, max_xy=dataset.max_pos).to(output_device)
+    auditory_net = kernel_residual_fc_embeds(input_ch=126, dir_ch=other_args.dir_ch, output_ch=2, intermediate_ch=other_args.features, grid_ch=other_args.grid_features, num_block=other_args.layers, num_block_residual=other_args.layers_residual, grid_gap=other_args.grid_gap, grid_bandwidth=other_args.bandwith_init, bandwidth_min=other_args.min_bandwidth, bandwidth_max=other_args.max_bandwidth, float_amt=other_args.position_float, min_xy=dataset.min_pos, max_xy=dataset.max_pos).to(output_device)
 
     loaded_weights = False
     current_files = sorted(os.listdir(other_args.exp_dir))

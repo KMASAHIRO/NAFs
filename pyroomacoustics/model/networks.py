@@ -38,9 +38,9 @@ class kernel_residual_fc_embeds(nn.Module):
 
         if activation_func_name == "default":
             activation_func = nn.LeakyReLU(negative_slope=0.1)
-        else if activation_func_name == "ELU":
+        elif activation_func_name == "ELU":
             activation_func = nn.ELU()
-        else if activation_func_name == "Swish" or activation_func_name == "SiLU":
+        elif activation_func_name == "Swish" or activation_func_name == "SiLU":
             activation_func = nn.SiLU()
 
         #self.residual_1 = nn.Sequential(basic_project2(input_ch + 128, intermediate_ch), nn.LeakyReLU(negative_slope=0.1), basic_project2(intermediate_ch, intermediate_ch))

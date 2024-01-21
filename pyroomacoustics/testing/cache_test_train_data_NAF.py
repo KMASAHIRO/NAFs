@@ -65,12 +65,19 @@ def test_net(rank, other_args):
             non_norm_position = to_torch(data_stuff[2]).to(output_device, non_blocking=True)
             freqs = to_torch(data_stuff[3]).to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
             times = to_torch(data_stuff[4]).to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
-            PIXEL_COUNT = gt.shape[-1]
-            position_embed = xyz_embedder(position).expand(-1, PIXEL_COUNT, -1)
+            PIXEL_COUNT = other_args.pixel_count
+            PIXEL_COUNT_test = gt.shape[-1]
+            position_embed = xyz_embedder(position).expand(-1, PIXEL_COUNT_test, -1)
             freq_embed = freq_embedder(freqs)
             time_embed = time_embedder(times)
             total_in = torch.cat((position_embed, freq_embed, time_embed), dim=2)
-            output = auditory_net(total_in, non_norm_position.squeeze(1)).squeeze(3).transpose(1, 2)
+            output_list = list()
+            for split_id in range(-(-PIXEL_COUNT_test//PIXEL_COUNT)):
+                total_in_split = total_in[:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT, :]
+                output_split = auditory_net(total_in_split, non_norm_position.squeeze(1)).transpose(1, 2)
+                output_list.append(output_split)
+            output = torch.cat(output_list, dim=2)
+            #output = auditory_net(total_in, non_norm_position.squeeze(1)).squeeze(3).transpose(1, 2)
             myout = output.cpu().numpy()
             myout_mag = myout[...,0].reshape(1, other_args.dir_ch, dataset.sound_size[1], dataset.sound_size[2])
             myout_phase = myout[...,1].reshape(1, other_args.dir_ch, dataset.sound_size[1], dataset.sound_size[2])

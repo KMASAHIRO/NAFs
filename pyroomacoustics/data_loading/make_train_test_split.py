@@ -20,10 +20,12 @@ if __name__ == "__main__":
             pos_ids.append(pos_id)
 
     test_len = len(pos_ids)//10
+    val_len = len(pos_ids)//10
     pos_ids_shuffle = random.sample(pos_ids, len(pos_ids))
-
-    train_test_split.append(pos_ids_shuffle[:-test_len])
-    train_test_split.append(pos_ids_shuffle[-test_len:])
-        
+    
+    train_test_split.append(pos_ids_shuffle[:-(test_len + val_len)])
+    train_test_split.append(pos_ids_shuffle[-(test_len + val_len):-val_len])
+    train_test_split.append(pos_ids_shuffle[-val_len:])
+    
     with open(os.path.join(write_path, "complete.pkl"), mode="wb") as f:
         pickle.dump(train_test_split, f)

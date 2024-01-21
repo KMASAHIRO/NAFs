@@ -1,7 +1,7 @@
 import torch
 torch.backends.cudnn.benchmark = True
 
-from data_loading.sound_loader import soundsamples
+from data_loading.sound_loader import soundsamples, soundsamples_val
 import torch.multiprocessing as mp
 import os
 import socket
@@ -116,6 +116,7 @@ def train_net(rank, world_size, freeport, other_args):
         total_phase_loss = 0
         total_spectral_loss = 0
         cur_iter = 0
+        ddp_auditory_net.train()
         for data_stuff in sound_loader:
             gt = data_stuff[0].to(output_device, non_blocking=True)
             position = data_stuff[1].to(output_device, non_blocking=True)
@@ -132,6 +133,7 @@ def train_net(rank, world_size, freeport, other_args):
             optimizer.zero_grad(set_to_none=False)
             try:
                 output = ddp_auditory_net(total_in, non_norm_position.squeeze(1)).transpose(1, 2)
+                #output = 0
             except Exception as foward_exception:
                 print(gt.shape, position.shape, freqs.shape, times.shape, position_embed.shape,
                       freq_embed.shape, time_embed.shape)
@@ -162,11 +164,50 @@ def train_net(rank, world_size, freeport, other_args):
             else:
                 param_group['lr'] = new_lrate
             par_idx += 1
+        
+        if rank == 0:
+            total_losses_val = 0
+            total_mag_loss_val = 0
+            total_phase_loss_val = 0
+            cur_iter_val = 0
+            ddp_auditory_net.eval()
+            with torch.no_grad():
+                for val_id in range(len(dataset.sound_files_val)):
+                    data_stuff_val = dataset.get_item_val(val_id)
+                    
+                    gt_val = data_stuff_val[0][None].to(output_device, non_blocking=True)
+                    position_val = data_stuff_val[1][None].to(output_device, non_blocking=True)
+                    non_norm_position_val = data_stuff_val[2][None].to(output_device, non_blocking=True)
+                    freqs_val = data_stuff_val[3][None].to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
+                    times_val = data_stuff_val[4][None].to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
+
+                    PIXEL_COUNT_val = gt_val.shape[-1]
+                    position_embed_val = xyz_embedder(position_val).expand(-1, PIXEL_COUNT_val, -1)
+                    freq_embed_val = freq_embedder(freqs_val)
+                    time_embed_val = time_embedder(times_val)
+
+                    total_in_val = torch.cat((position_embed_val, freq_embed_val, time_embed_val), dim=2)
+                    for split_id in range(-(-PIXEL_COUNT_val//PIXEL_COUNT)):
+                        total_in_val_split = total_in_val[:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT, :]
+                        output_val = ddp_auditory_net(total_in_val_split, non_norm_position_val.squeeze(1)).transpose(1, 2)
+                        
+                        mag_loss_val = criterion(output_val[...,0], gt_val[:,:other_args.dir_ch, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT])
+                        phase_loss_val = criterion(output_val[...,1], gt_val[:,other_args.dir_ch:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.phase_alpha
+                        loss_val = mag_loss_val + phase_loss_val
+
+                        total_mag_loss_val += mag_loss_val
+                        total_phase_loss_val += phase_loss_val
+                        total_losses_val += loss_val
+                        cur_iter_val += 1
+
         if rank == 0:
             avg_loss = total_losses.item() / cur_iter
             avg_mag = total_mag_loss.item() / cur_iter
             avg_phase = total_phase_loss.item() / cur_iter
-            print("{}: Ending epoch {}, loss {:.5f}, mag {:.5f}, phase {:.5f}, time {}".format(other_args.exp_name, epoch, avg_loss, avg_mag, avg_phase, time() - old_time))
+            avg_loss_val = total_losses_val.item() / cur_iter_val
+            avg_mag_val = total_mag_loss_val.item() / cur_iter_val
+            avg_phase_val = total_phase_loss_val.item() / cur_iter_val
+            print("{}: Ending epoch {}, loss {:.5f}, mag {:.5f}, phase {:.5f}, loss_val {:.5f}, mag_val {:.5f}, phase_val {:.5f}, time {}".format(other_args.exp_name, epoch, avg_loss, avg_mag, avg_phase, avg_loss_val, avg_mag_val, avg_phase_val, time() - old_time))
             old_time = time()
         if rank == 0 and (epoch%20==0 or epoch==1 or epoch>(other_args.epochs-3)):
 

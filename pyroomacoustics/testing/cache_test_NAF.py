@@ -78,7 +78,7 @@ def test_net(rank, other_args):
                     pad_data = torch.zeros(total_in_split.shape[0], PIXEL_COUNT-total_in_split.shape[1], total_in_split.shape[2]).to(output_device, non_blocking=True)
                     total_in_split_padded = torch.cat((total_in_split, pad_data), dim=1)
                     output_split = ddp_auditory_net(total_in_split_padded, non_norm_position.squeeze(1)).transpose(1, 2)
-                    output_split = output_split[:, :total_in_split.shape[1], :]
+                    output_split = output_split[:, :, :total_in_split.shape[1], :]
                 else:
                     output_split = ddp_auditory_net(total_in_split, non_norm_position.squeeze(1)).transpose(1, 2)
                 output_list.append(output_split)

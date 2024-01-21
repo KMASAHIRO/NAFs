@@ -193,7 +193,7 @@ def train_net(rank, world_size, freeport, other_args):
                             pad_data = torch.zeros(total_in_val_split.shape[0], PIXEL_COUNT-total_in_val_split.shape[1], total_in_val_split.shape[2]).to(output_device, non_blocking=True)
                             total_in_val_split_padded = torch.cat((total_in_val_split, pad_data), dim=1)
                             output_val = ddp_auditory_net(total_in_val_split_padded, non_norm_position_val.squeeze(1)).transpose(1, 2)
-                            output_val = output_val[:, :total_in_val_split.shape[1], :]
+                            output_val = output_val[:, :, :total_in_val_split.shape[1], :]
                         else:
                             output_val = ddp_auditory_net(total_in_val_split, non_norm_position_val.squeeze(1)).transpose(1, 2)
 

@@ -25,7 +25,7 @@ def test_net(rank, other_args):
     xyz_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2, max_freq=7).to(output_device)
     time_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2).to(output_device)
     freq_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2).to(output_device)
-    auditory_net = kernel_residual_fc_embeds(input_ch=126, dir_ch=other_args.dir_ch, output_ch=2, intermediate_ch=other_args.features, grid_ch=other_args.grid_features, num_block=other_args.layers, num_block_residual=other_args.layers_residual, grid_gap=other_args.grid_gap, grid_bandwidth=other_args.bandwith_init, bandwidth_min=other_args.min_bandwidth, bandwidth_max=other_args.max_bandwidth, float_amt=other_args.position_float, min_xy=dataset.min_pos, max_xy=dataset.max_pos).to(output_device)
+    auditory_net = kernel_residual_fc_embeds(input_ch=126, dir_ch=other_args.dir_ch, output_ch=2, intermediate_ch=other_args.features, grid_ch=other_args.grid_features, num_block=other_args.layers, num_block_residual=other_args.layers_residual, grid_gap=other_args.grid_gap, grid_bandwidth=other_args.bandwith_init, bandwidth_min=other_args.min_bandwidth, bandwidth_max=other_args.max_bandwidth, float_amt=other_args.position_float, min_xy=dataset.min_pos, max_xy=dataset.max_pos, batch_norm=other_args.batch_norm, batch_norm_features=other_args.pixel_count, activation_func_name=other_args.activation_func_name).to(output_device)
 
     loaded_weights = False
     current_files = sorted(os.listdir(other_args.exp_dir))
@@ -74,7 +74,13 @@ def test_net(rank, other_args):
             output_list = list()
             for split_id in range(-(-PIXEL_COUNT_test//PIXEL_COUNT)):
                 total_in_split = total_in[:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT, :]
-                output_split = auditory_net(total_in_split, non_norm_position.squeeze(1)).transpose(1, 2)
+                if total_in_split.shape[1] < PIXEL_COUNT:
+                    pad_data = torch.zeros(total_in_split.shape[0], PIXEL_COUNT-total_in_split.shape[1], total_in_split.shape[2]).to(output_device, non_blocking=True)
+                    total_in_split_padded = torch.cat((total_in_split, pad_data), dim=1)
+                    output_split = ddp_auditory_net(total_in_split_padded, non_norm_position.squeeze(1)).transpose(1, 2)
+                    output_split = output_split[:, :total_in_split.shape[1], :]
+                else:
+                    output_split = ddp_auditory_net(total_in_split, non_norm_position.squeeze(1)).transpose(1, 2)
                 output_list.append(output_split)
             output = torch.cat(output_list, dim=2)
             #output = auditory_net(total_in, non_norm_position.squeeze(1)).squeeze(3).transpose(1, 2)

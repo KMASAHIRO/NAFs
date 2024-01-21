@@ -46,7 +46,7 @@ def train_net(rank, world_size, freeport, other_args):
     time_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2).to(output_device)
     freq_embedder = embedding_module_log(num_freqs=other_args.num_freqs, ch_dim=2).to(output_device)
 
-    auditory_net = kernel_residual_fc_embeds(input_ch=126, dir_ch=other_args.dir_ch, output_ch=2, intermediate_ch=other_args.features, grid_ch=other_args.grid_features, num_block=other_args.layers, num_block_residual=other_args.layers_residual, grid_gap=other_args.grid_gap, grid_bandwidth=other_args.bandwith_init, bandwidth_min=other_args.min_bandwidth, bandwidth_max=other_args.max_bandwidth, float_amt=other_args.position_float, min_xy=dataset.min_pos, max_xy=dataset.max_pos).to(output_device)
+    auditory_net = kernel_residual_fc_embeds(input_ch=126, dir_ch=other_args.dir_ch, output_ch=2, intermediate_ch=other_args.features, grid_ch=other_args.grid_features, num_block=other_args.layers, num_block_residual=other_args.layers_residual, grid_gap=other_args.grid_gap, grid_bandwidth=other_args.bandwith_init, bandwidth_min=other_args.min_bandwidth, bandwidth_max=other_args.max_bandwidth, float_amt=other_args.position_float, min_xy=dataset.min_pos, max_xy=dataset.max_pos, batch_norm=other_args.batch_norm, batch_norm_features=other_args.pixel_count, activation_func_name=other_args.activation_func_name).to(output_device)
 
     if rank == 0:
         print("Dataloader requires {} batches".format(len(sound_loader)))
@@ -141,7 +141,7 @@ def train_net(rank, world_size, freeport, other_args):
                 continue
             # output shape torch.Size([5, other_args.dir_ch, 2000, 2])
             # gt shape torch.Size([5, other_args.dir_ch*2, 2000])
-            mag_loss = criterion(output[...,0], gt[:,:other_args.dir_ch])
+            mag_loss = criterion(output[...,0], gt[:,:other_args.dir_ch]) * other_args.mag_alpha
             phase_loss = criterion(output[...,1], gt[:,other_args.dir_ch:]) * other_args.phase_alpha
             loss = mag_loss + phase_loss
             # spectral_loss = spectral_criterion(output[...,0], gt[:,:2])
@@ -189,9 +189,15 @@ def train_net(rank, world_size, freeport, other_args):
                     total_in_val = torch.cat((position_embed_val, freq_embed_val, time_embed_val), dim=2)
                     for split_id in range(-(-PIXEL_COUNT_val//PIXEL_COUNT)):
                         total_in_val_split = total_in_val[:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT, :]
-                        output_val = ddp_auditory_net(total_in_val_split, non_norm_position_val.squeeze(1)).transpose(1, 2)
-                        
-                        mag_loss_val = criterion(output_val[...,0], gt_val[:,:other_args.dir_ch, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT])
+                        if total_in_val_split.shape[1] < PIXEL_COUNT:
+                            pad_data = torch.zeros(total_in_val_split.shape[0], PIXEL_COUNT-total_in_val_split.shape[1], total_in_val_split.shape[2]).to(output_device, non_blocking=True)
+                            total_in_val_split_padded = torch.cat((total_in_val_split, pad_data), dim=1)
+                            output_val = ddp_auditory_net(total_in_val_split_padded, non_norm_position_val.squeeze(1)).transpose(1, 2)
+                            output_val = output_val[:, :total_in_val_split.shape[1], :]
+                        else:
+                            output_val = ddp_auditory_net(total_in_val_split, non_norm_position_val.squeeze(1)).transpose(1, 2)
+
+                        mag_loss_val = criterion(output_val[...,0], gt_val[:,:other_args.dir_ch, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.mag_alpha
                         phase_loss_val = criterion(output_val[...,1], gt_val[:,other_args.dir_ch:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.phase_alpha
                         loss_val = mag_loss_val + phase_loss_val
 

@@ -57,10 +57,13 @@ class Options():
         parser.add_argument('--lr_init', default=5e-4, type=float)  # Starting learning rate
         parser.add_argument('--lr_decay', default=1e-1, type=float)  # Learning rate decay rate
         parser.add_argument('--phase_alpha', default=1e-1, type=float)  # Phase learning scale
+        parser.add_argument('--mag_alpha', default=1.0, type=float)  # Magnitude learning scale
 
         # network arguments
         parser.add_argument('--layers', default=8, type=int) # Number of layers in the network
         parser.add_argument('--layers_residual', default=0, type=int) # Number of residual layers in the network
+        parser.add_argument('--batch_norm', default="none", type=str)
+        parser.add_argument('--activation_func_name', default="default", type=str)
         parser.add_argument('--grid_gap', default=0.25, type=float) # How far are the grid points spaced
         parser.add_argument('--bandwith_init', default=0.25, type=float) # Initial bandwidth of the grid
         parser.add_argument('--features', default=512, type=int) # Number of neurons in the network for each layer

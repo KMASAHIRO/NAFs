@@ -16,6 +16,16 @@ from time import time
 from options import Options
 import functools
 import random
+import pyroomacoustics as pra
+
+def get_spectrograms(input_stft, input_if):
+    # 8 chanel input of shape [8,freq,time]
+    padded_input_stft = np.concatenate((input_stft, input_stft[:,-1:]), axis=1)
+    padded_input_if = np.concatenate((input_if, input_if[:,-1:]), axis=1)
+    unwrapped = np.cumsum(padded_input_if, axis=-1)*np.pi
+    phase_val = np.cos(unwrapped) + 1j * np.sin(unwrapped)
+    restored = (np.exp(padded_input_stft)-1e-3)*phase_val
+    return restored
 
 def find_free_port():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
@@ -164,47 +174,82 @@ def train_net(rank, world_size, freeport, other_args):
             else:
                 param_group['lr'] = new_lrate
             par_idx += 1
+                
+        total_losses_val = 0
+        total_mag_loss_val = 0
+        total_phase_loss_val = 0
+        cur_iter_val = 0
+        DoA_err = 0
+        DoA_cur_iter_val = 0
+        ddp_auditory_net.eval()
+        with torch.no_grad():
+            for val_id in range(len(dataset.sound_files_val)):
+                data_stuff_val = dataset.get_item_val(val_id)
+                
+                gt_val = data_stuff_val[0][None].to(output_device, non_blocking=True)
+                position_val = data_stuff_val[1][None].to(output_device, non_blocking=True)
+                non_norm_position_val = data_stuff_val[2][None].to(output_device, non_blocking=True)
+                freqs_val = data_stuff_val[3][None].to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
+                times_val = data_stuff_val[4][None].to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
         
-        if rank == 0:
-            total_losses_val = 0
-            total_mag_loss_val = 0
-            total_phase_loss_val = 0
-            cur_iter_val = 0
-            ddp_auditory_net.eval()
-            with torch.no_grad():
-                for val_id in range(len(dataset.sound_files_val)):
-                    data_stuff_val = dataset.get_item_val(val_id)
-                    
-                    gt_val = data_stuff_val[0][None].to(output_device, non_blocking=True)
-                    position_val = data_stuff_val[1][None].to(output_device, non_blocking=True)
-                    non_norm_position_val = data_stuff_val[2][None].to(output_device, non_blocking=True)
-                    freqs_val = data_stuff_val[3][None].to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
-                    times_val = data_stuff_val[4][None].to(output_device, non_blocking=True).unsqueeze(2) * 2.0 * pi
+                PIXEL_COUNT_val = gt_val.shape[-1]
+                position_embed_val = xyz_embedder(position_val).expand(-1, PIXEL_COUNT_val, -1)
+                freq_embed_val = freq_embedder(freqs_val)
+                time_embed_val = time_embedder(times_val)
 
-                    PIXEL_COUNT_val = gt_val.shape[-1]
-                    position_embed_val = xyz_embedder(position_val).expand(-1, PIXEL_COUNT_val, -1)
-                    freq_embed_val = freq_embedder(freqs_val)
-                    time_embed_val = time_embedder(times_val)
+                total_in_val = torch.cat((position_embed_val, freq_embed_val, time_embed_val), dim=2)
+                output_val_list = list()
+                for split_id in range(-(-PIXEL_COUNT_val//PIXEL_COUNT)):
+                    total_in_val_split = total_in_val[:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT, :]
+                    if total_in_val_split.shape[1] < PIXEL_COUNT:
+                        pad_data = torch.zeros(total_in_val_split.shape[0], PIXEL_COUNT-total_in_val_split.shape[1], total_in_val_split.shape[2]).to(output_device, non_blocking=True)
+                        total_in_val_split_padded = torch.cat((total_in_val_split, pad_data), dim=1)
+                        output_val_split = ddp_auditory_net(total_in_val_split_padded, non_norm_position_val.squeeze(1)).transpose(1, 2)
+                        output_val_split = output_val_split[:, :, :total_in_val_split.shape[1], :]
+                    else:
+                        output_val_split = ddp_auditory_net(total_in_val_split, non_norm_position_val.squeeze(1)).transpose(1, 2)
+        
+                    mag_loss_val = criterion(output_val_split[...,0], gt_val[:,:other_args.dir_ch, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.mag_alpha
+                    phase_loss_val = criterion(output_val_split[...,1], gt_val[:,other_args.dir_ch:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.phase_alpha
+                    loss_val = mag_loss_val + phase_loss_val
+        
+                    total_mag_loss_val += mag_loss_val
+                    total_phase_loss_val += phase_loss_val
+                    total_losses_val += loss_val
+                    cur_iter_val += 1
 
-                    total_in_val = torch.cat((position_embed_val, freq_embed_val, time_embed_val), dim=2)
-                    for split_id in range(-(-PIXEL_COUNT_val//PIXEL_COUNT)):
-                        total_in_val_split = total_in_val[:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT, :]
-                        if total_in_val_split.shape[1] < PIXEL_COUNT:
-                            pad_data = torch.zeros(total_in_val_split.shape[0], PIXEL_COUNT-total_in_val_split.shape[1], total_in_val_split.shape[2]).to(output_device, non_blocking=True)
-                            total_in_val_split_padded = torch.cat((total_in_val_split, pad_data), dim=1)
-                            output_val = ddp_auditory_net(total_in_val_split_padded, non_norm_position_val.squeeze(1)).transpose(1, 2)
-                            output_val = output_val[:, :, :total_in_val_split.shape[1], :]
-                        else:
-                            output_val = ddp_auditory_net(total_in_val_split, non_norm_position_val.squeeze(1)).transpose(1, 2)
+                    output_val_list.append(output_val_split)
+                
+                output_val = torch.cat(output_val_list, dim=2)
+                # スペクトログラム復元
+                myout = output_val.cpu().numpy()
+                myout_mag = myout[...,0].reshape(1, other_args.dir_ch, dataset.sound_size[1], dataset.sound_size[2])
+                myout_phase = myout[...,1].reshape(1, other_args.dir_ch, dataset.sound_size[1], dataset.sound_size[2])
+                mygt = gt_val.cpu().numpy()
+                mygt_mag = mygt[:,:other_args.dir_ch].reshape(1, other_args.dir_ch, dataset.sound_size[1], dataset.sound_size[2])
+                mygt_phase = mygt[:,other_args.dir_ch:].reshape(1, other_args.dir_ch, dataset.sound_size[1], dataset.sound_size[2])
 
-                        mag_loss_val = criterion(output_val[...,0], gt_val[:,:other_args.dir_ch, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.mag_alpha
-                        phase_loss_val = criterion(output_val[...,1], gt_val[:,other_args.dir_ch:, split_id*PIXEL_COUNT:(split_id+1)*PIXEL_COUNT]) * other_args.phase_alpha
-                        loss_val = mag_loss_val + phase_loss_val
+                net_mag = (myout_mag * dataset.std.numpy() + dataset.mean.numpy())[0]
+                gt_mag = (mygt_mag * dataset.std.numpy() + dataset.mean.numpy())[0]
+                net_phase = myout_phase[0]*dataset.phase_std
+                gt_phase = mygt_phase[0]*dataset.phase_std
 
-                        total_mag_loss_val += mag_loss_val
-                        total_phase_loss_val += phase_loss_val
-                        total_losses_val += loss_val
-                        cur_iter_val += 1
+                net_spec = get_spectrograms(net_mag, net_phase)
+                gt_spec = get_spectrograms(gt_mag, gt_phase)
+
+                # DoA
+                position_circle_xy = pra.beamforming.circular_2D_array(center=[0,0], M=other_args.dir_ch, phi0=math.pi/2, radius=0.0365)
+                # 正解データのDoA
+                doa_gt = pra.doa.algorithms["NormMUSIC"](position_circle_xy, fs=16000, nfft=512)
+                doa_gt.locate_sources(gt_spec)
+                gt_degree = np.argmax(doa_gt.grid.values)
+                # 検証データのDoA
+                doa_net = pra.doa.algorithms["NormMUSIC"](position_circle_xy, fs=16000, nfft=512)
+                doa_net.locate_sources(net_spec)
+                net_degree = np.argmax(doa_net.grid.values)
+                # 誤差計算
+                DoA_err += np.min([np.abs(net_degree - gt_degree), 360.0 - np.abs(net_degree - gt_degree)])
+                DoA_cur_iter_val += 1
 
         if rank == 0:
             avg_loss = total_losses.item() / cur_iter
@@ -213,7 +258,8 @@ def train_net(rank, world_size, freeport, other_args):
             avg_loss_val = total_losses_val.item() / cur_iter_val
             avg_mag_val = total_mag_loss_val.item() / cur_iter_val
             avg_phase_val = total_phase_loss_val.item() / cur_iter_val
-            print("{}: Ending epoch {}, loss {:.5f}, mag {:.5f}, phase {:.5f}, loss_val {:.5f}, mag_val {:.5f}, phase_val {:.5f}, time {}".format(other_args.exp_name, epoch, avg_loss, avg_mag, avg_phase, avg_loss_val, avg_mag_val, avg_phase_val, time() - old_time))
+            avg_DoA_err = DoA_err / DoA_cur_iter_val
+            print("{}: Ending epoch {}, loss {:.5f}, mag {:.5f}, phase {:.5f}, loss_val {:.5f}, mag_val {:.5f}, phase_val {:.5f}, DoA_err(NormMUSIC) {:.5f}, time {}".format(other_args.exp_name, epoch, avg_loss, avg_mag, avg_phase, avg_loss_val, avg_mag_val, avg_phase_val, avg_DoA_err, time() - old_time))
             old_time = time()
         if rank == 0 and (epoch%20==0 or epoch==1 or epoch>(other_args.epochs-3)):
 

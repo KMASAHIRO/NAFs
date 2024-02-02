@@ -30,10 +30,13 @@ def test_net(rank, other_args):
     loaded_weights = False
     current_files = sorted(os.listdir(other_args.exp_dir))
     if len(current_files)>0:
-        latest = current_files[-1]
-        print("Identified checkpoint {}".format(latest))
+        if other_args.test_checkpoint == "latest":
+            weights_file = current_files[-1]
+        else:
+            weights_file = other_args.test_checkpoint + ".chkpt"
+        print("Identified checkpoint {}".format(weights_file))
         map_location = 'cuda:%d' % rank
-        weight_loc = os.path.join(other_args.exp_dir, latest)
+        weight_loc = os.path.join(other_args.exp_dir, weights_file)
         weights = torch.load(weight_loc, map_location=map_location)
         print("Checkpoint loaded {}".format(weight_loc))
         auditory_net.load_state_dict(weights["network"])

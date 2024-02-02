@@ -81,6 +81,7 @@ class Options():
         parser.add_argument('--baseline_mode', default="opus", type=str)  # Are we testing aac or opus? For baselines
         parser.add_argument('--interp_mode', default="nearest", choices=['linear', 'nearest'], type=str)  # interpolation mode. For baselines
         parser.add_argument('--fp16_interp', default=0, type=str)  # Use fp16 to save memory, essentially no change in results
+        parser.add_argument('--test_checkpoint', default="latest", type=str)  # checkpoint (weight) file for testing
 
         # visualization arguments
         parser.add_argument('--vis_ori', default=0, type=str)  # Choose an orientation to visualize, can be 0,1,2,3; corresponding to 0,90,180,270 degrees

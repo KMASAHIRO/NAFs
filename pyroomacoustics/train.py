@@ -17,6 +17,7 @@ from options import Options
 import functools
 import random
 import pyroomacoustics as pra
+import shutil
 
 def get_spectrograms(input_stft, input_if):
     # 8 chanel input of shape [8,freq,time]
@@ -117,7 +118,8 @@ def train_net(rank, world_size, freeport, other_args):
         optimizer.load_state_dict(weights["opt"])
         dist.barrier()
 
-
+    best_doa_values = (180*np.ones(10)).tolist()
+    best_doa_chkpt_list ["" for i in range(10)]
     if rank == 0:
         old_time = time()
     for epoch in range(start_epoch, other_args.epochs+1):
@@ -261,9 +263,34 @@ def train_net(rank, world_size, freeport, other_args):
             avg_DoA_err = DoA_err / DoA_cur_iter_val
             print("{}: Ending epoch {}, loss {:.5f}, mag {:.5f}, phase {:.5f}, loss_val {:.5f}, mag_val {:.5f}, phase_val {:.5f}, DoA_err(NormMUSIC) {:.5f}, time {}".format(other_args.exp_name, epoch, avg_loss, avg_mag, avg_phase, avg_loss_val, avg_mag_val, avg_phase_val, avg_DoA_err, time() - old_time))
             old_time = time()
-        if rank == 0 and (epoch%20==0 or epoch==1 or epoch>(other_args.epochs-3)):
+        #if rank == 0 and (epoch%20==0 or epoch==1 or epoch>(other_args.epochs-3)):
+        #
+        #    save_name = str(epoch).zfill(5)+".chkpt"
+        #    save_dict = {}
+        #    save_dict["network"] = ddp_auditory_net.module.state_dict()
+        #    torch.save(save_dict, os.path.join(other_args.exp_dir, save_name))
+        if rank == 0 and (epoch==1 or epoch==other_args.epochs or (avg_DoA_err <= best_doa_values[-1] and avg_DoA_err < 65.0)):
+            replace_index = len(best_doa_values) - 1
+            for i in range(len(best_doa_values)):
+                if avg_DoA_err <= best_doa_values[i]:
+                    replace_index = i
+                    break
+            
+            if best_doa_chkpt_list[replace_index] == "":
+                save_name = "best_doa_" + str(replace_index+1).zfill(2) + "_epoch_" + str(epoch).zfill(5) + ".chkpt"
+                best_doa_chkpt_list[replace_index] = save_name
+            else:
+                os.remove(os.path.join(other_args.exp_dir, best_doa_chkpt_list[-1]))
+                for i in range(replace_index, len(best_doa_values) - 1):
+                    old_save_name = best_doa_chkpt_list[i]
+                    old_save_name_split = old_save_name.split("_")
+                    old_save_name_split[2] = str(int(old_save_name_split[2]) + 1)
+                    new_save_name = "_".join(old_save_name_split)
+                    best_doa_chkpt_list[i] = new_save_name
+                    shutil.move(os.path.join(other_args.exp_dir, old_save_name), os.path.join(other_args.exp_dir, new_save_name))
+                save_name = "best_doa_" + str(replace_index+1).zfill(2) + "_epoch_" + str(epoch).zfill(5) + ".chkpt"
+                best_doa_chkpt_list = best_doa_chkpt_list[:replace_index] + [save_name] + best_doa_chkpt_list[replace_index:-1]
 
-            save_name = str(epoch).zfill(5)+".chkpt"
             save_dict = {}
             save_dict["network"] = ddp_auditory_net.module.state_dict()
             torch.save(save_dict, os.path.join(other_args.exp_dir, save_name))

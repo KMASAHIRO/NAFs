@@ -269,7 +269,13 @@ def train_net(rank, world_size, freeport, other_args):
         #    save_dict = {}
         #    save_dict["network"] = ddp_auditory_net.module.state_dict()
         #    torch.save(save_dict, os.path.join(other_args.exp_dir, save_name))
-        if rank == 0 and (epoch==1 or epoch==other_args.epochs or (avg_DoA_err <= best_doa_values[-1] and avg_DoA_err < 65.0)):
+        if rank == 0 and (epoch==1 or epoch==other_args.epochs):
+            save_name = str(epoch).zfill(5)+".chkpt"
+            save_dict = {}
+            save_dict["network"] = ddp_auditory_net.module.state_dict()
+            torch.save(save_dict, os.path.join(other_args.exp_dir, save_name))
+        
+        if rank == 0 and (avg_DoA_err <= best_doa_values[-1] and avg_DoA_err < 65.0):
             replace_index = len(best_doa_values) - 1
             for i in range(len(best_doa_values)):
                 if avg_DoA_err <= best_doa_values[i]:
@@ -294,6 +300,7 @@ def train_net(rank, world_size, freeport, other_args):
             save_dict = {}
             save_dict["network"] = ddp_auditory_net.module.state_dict()
             torch.save(save_dict, os.path.join(other_args.exp_dir, save_name))
+            
     print("Wrapping up training {}".format(other_args.exp_name))
     dist.barrier()
     dist.destroy_process_group()

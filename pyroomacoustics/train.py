@@ -119,7 +119,7 @@ def train_net(rank, world_size, freeport, other_args):
         dist.barrier()
 
     best_doa_values = (180*np.ones(10)).tolist()
-    best_doa_chkpt_list ["" for i in range(10)]
+    best_doa_chkpt_list = ["" for i in range(10)]
     if rank == 0:
         old_time = time()
     for epoch in range(start_epoch, other_args.epochs+1):

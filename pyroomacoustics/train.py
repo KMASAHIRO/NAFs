@@ -290,6 +290,9 @@ def train_net(rank, world_size, freeport, other_args):
                     os.remove(os.path.join(other_args.exp_dir, best_doa_chkpt_list[-1]))
                 
                 for i in range(replace_index, len(best_doa_values) - 1):
+                    if best_doa_chkpt_list[i] == "":
+                        break
+                    
                     old_save_name = best_doa_chkpt_list[i]
                     old_save_name_split = old_save_name.split("_")
                     old_save_name_split[2] = str(int(old_save_name_split[2]) + 1)

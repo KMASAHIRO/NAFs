@@ -295,7 +295,7 @@ def train_net(rank, world_size, freeport, other_args):
                     
                     old_save_name = best_doa_chkpt_list[i]
                     old_save_name_split = old_save_name.split("_")
-                    old_save_name_split[2] = str(int(old_save_name_split[2]) + 1)
+                    old_save_name_split[2] = str(int(old_save_name_split[2]) + 1).zfill(2)
                     new_save_name = "_".join(old_save_name_split)
                     best_doa_chkpt_list[i] = new_save_name
                     shutil.move(os.path.join(other_args.exp_dir, old_save_name), os.path.join(other_args.exp_dir, new_save_name))

@@ -286,7 +286,9 @@ def train_net(rank, world_size, freeport, other_args):
                 save_name = "best_doa_" + str(replace_index+1).zfill(2) + "_epoch_" + str(epoch).zfill(5) + ".chkpt"
                 best_doa_chkpt_list[replace_index] = save_name
             else:
-                os.remove(os.path.join(other_args.exp_dir, best_doa_chkpt_list[-1]))
+                if best_doa_chkpt_list[-1] != "":
+                    os.remove(os.path.join(other_args.exp_dir, best_doa_chkpt_list[-1]))
+                
                 for i in range(replace_index, len(best_doa_values) - 1):
                     old_save_name = best_doa_chkpt_list[i]
                     old_save_name_split = old_save_name.split("_")

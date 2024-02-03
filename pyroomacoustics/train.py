@@ -281,6 +281,7 @@ def train_net(rank, world_size, freeport, other_args):
                 if avg_DoA_err <= best_doa_values[i]:
                     replace_index = i
                     break
+            best_doa_values = best_doa_values[:replace_index] + [avg_DoA_err] + best_doa_values[replace_index:-1]
             
             if best_doa_chkpt_list[replace_index] == "":
                 save_name = "best_doa_" + str(replace_index+1).zfill(2) + "_epoch_" + str(epoch).zfill(5) + ".chkpt"

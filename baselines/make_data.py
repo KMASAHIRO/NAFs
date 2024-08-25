@@ -2,6 +2,7 @@ import numpy as np
 import librosa
 import torch
 import torchaudio
+from torchaudio.transforms import Spectrogram
 from scipy.io import wavfile
 
 def load_audio(path_name, use_torch=True, resample=True, resample_rate=22050):
